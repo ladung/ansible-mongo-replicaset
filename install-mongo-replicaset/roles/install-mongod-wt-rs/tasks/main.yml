@@ -1,0 +1,54 @@
+---
+- name: check if mongo already installed
+  stat: 
+    path: /usr/bin/mongo
+  register: mongo_bin
+
+# - name: MongoDB | Fetch 10Gen signing key
+#   command: apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
+#   when: mongo_bin.stat.exists == False
+- name: add apt-key
+  shell:
+    wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo apt-key add -
+  when: mongo_bin.stat.exists == False    
+- name: MongoDB add repository
+  shell:
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+  when: mongo_bin.stat.exists == False
+
+- name: install mongodb
+  apt: 
+    name: "{{ item }}" 
+    state: latest 
+    update_cache: yes
+  with_items:
+    - mongodb-org
+  when: mongo_bin.stat.exists == False
+
+- name: MongoDB - stop server
+  service: 
+    name: mongod 
+    state: stopped
+  when: mongo_bin.stat.exists == False
+
+# - name: check if ssl folder already exists
+#   stat: path=/etc/ssl
+#   register: ssl_folder
+
+# - name: re-create ssl folder
+#   file: path=/etc/ssl state=directory
+#   when: (ssl_folder.stat.isdir == False) or ({{ force|default(False) }} == True)
+
+# - name: create self-signed SSL cert
+#   command: openssl req -newkey rsa:2048 -new -x509 -days 365 -nodes -subj "/C=FR/ST=PACA/L=SophiaAntipolis/O=YourOrga/CN=contact@yourorga.com" -out /etc/ssl/mongodb-cert.crt -keyout /etc/ssl/mongodb-cert.key
+
+# - name: compile self-signed SSL cert in PEM file
+#   shell: cat /etc/ssl/mongodb-cert.key /etc/ssl/mongodb-cert.crt > /etc/ssl/mongodb.pem
+
+# On next startup, a configuration file will be used
+- name: copy configuration file
+  copy: 
+    src: mongod.conf 
+    dest: /etc/mongod.conf 
+    mode: 0644
+#  when: mongo_bin.stat.exists == False
